@@ -6,15 +6,15 @@
 
 #IncludeRegexTransform: 
 
-/home/dany/Documents/Image/OPENGL/main.cpp
+/home/dany/Documents/Image/OPENGL/matrix4.cpp
+matrix4.hh
+/home/dany/Documents/Image/OPENGL/matrix4.hh
+
+/home/dany/Documents/Image/OPENGL/matrix4.hh
+iosfwd
+-
+vector
+-
 iostream
--
-string.h
--
-GL/glut.h
--
-stdio.h
--
-math.h
 -
 
