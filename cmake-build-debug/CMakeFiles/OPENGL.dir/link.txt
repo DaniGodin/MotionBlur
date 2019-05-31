@@ -1,1 +1,0 @@
-/usr/bin/c++  -g   CMakeFiles/OPENGL.dir/main.cpp.o CMakeFiles/OPENGL.dir/matrix4.cpp.o  -o OPENGL /usr/lib/x86_64-linux-gnu/libOpenGL.so /usr/lib/x86_64-linux-gnu/libGLX.so /usr/lib/x86_64-linux-gnu/libGLU.so /usr/lib/x86_64-linux-gnu/libglut.so /usr/lib/x86_64-linux-gnu/libXi.so /usr/lib/x86_64-linux-gnu/libGLEW.so 
