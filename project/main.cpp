@@ -211,13 +211,9 @@ int main()
         // render
         // ------
         glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-
-
-
+        
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
-
-        FboShader.use();
 
         if (pos < -1.0f || pos > 1.0f){
             sense = (sense + 1)%2;
@@ -234,8 +230,14 @@ int main()
         trans = glm::translate(trans, glm::vec3(pos, -0.2f, pos));
         trans = glm::rotate(trans, (float)glfwGetTime(), glm::vec3(0.0f, 0.0f, 1.0f));
 
-        unsigned int transformLoc = glGetUniformLocation(FboShader.ID, "transform");
+        FboShader.use();
+        unsigned int transformLoc = glGetUniformLocation(FboShader.ID, "trans");
         glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(trans));
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, texture);
+
+        glBindVertexArray(VAO);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
         glBindVertexArray(0);
 
