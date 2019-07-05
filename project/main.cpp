@@ -24,19 +24,29 @@ const unsigned int SCR_HEIGHT = 800;
 void init_vertices(unsigned int* VBO,unsigned int* VAO,unsigned int* EBO){
 
     float vertices[] = {
-            0.0f,  0.5f, 0.0f, 0.25f, 0.5f, // top
+            -0.25f,  0.25f, 0.0f, 0.0f, 1.0f, // top left
             -0.25f, 0.0f, 0.0f, 0.0f, 0.0f, // bottom left
-            0.25f, 0.0f, 0.0f,  0.5f, 0.0f// bottom right
+            0.25f, 0.0f, 0.0f,  1.0f, 0.0f,// bottom right
+            0.25f, 0.25f, 0.0f, 1.0f, 1.0f // top right
 
+    };
+
+    unsigned int indices[] = {  // note that we start from 0!
+            0, 1, 3,  // first Triangle
+            1, 2, 3   // second Triangle
     };
 
     glGenVertexArrays(1, VAO);
     glGenBuffers(1, VBO);
+    glGenBuffers(1, EBO);
     // bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
     glBindVertexArray(*VAO);
 
     glBindBuffer(GL_ARRAY_BUFFER, *VBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, *EBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
 
     // position attribute
@@ -97,11 +107,37 @@ int main()
 
     // build and compile our shader program
     // ------------------------------------
-    Shader ourShader("../vertex.shd", "../fragment.shd"); // you can name your shader files however you like
+    Shader ScreenShader("../vertex.shd", "../fragment.shd");
+
+    Shader FboShader("../vertex_fbo.shd", "../fragment_fbo.shd");
+
 
     unsigned int VBO, VAO, EBO;
 
     init_vertices(&VBO, &VAO, &EBO);
+
+
+    //init screen
+    float quadVertices[] = { // vertex attributes for a quad that fills the entire screen in Normalized Device Coordinates.
+            // positions   // texCoords
+            -1.0f,  1.0f,  0.0f, 1.0f,
+            -1.0f, -1.0f,  0.0f, 0.0f,
+            1.0f, -1.0f,  1.0f, 0.0f,
+
+            -1.0f,  1.0f,  0.0f, 1.0f,
+            1.0f, -1.0f,  1.0f, 0.0f,
+            1.0f,  1.0f,  1.0f, 1.0f
+    };
+    unsigned int quadVAO, quadVBO;
+    glGenVertexArrays(1, &quadVAO);
+    glGenBuffers(1, &quadVBO);
+    glBindVertexArray(quadVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
 
 
     //loading texture
@@ -128,13 +164,37 @@ int main()
     stbi_image_free(data);
 
 
+    //creation of framebuffer texture for the motion blur
+
+    unsigned int framebuffer;
+    glGenFramebuffers(1, &framebuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    // create a color attachment texture
+    unsigned int textureColorbuffer;
+    glGenTextures(1, &textureColorbuffer);
+    glBindTexture(GL_TEXTURE_2D, textureColorbuffer);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureColorbuffer, 0);
+
+
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+
+    //initialisation of shaders
+    FboShader.use();
+    FboShader.setInt("Texture", 0);
+
+    ScreenShader.use();
+    ScreenShader.setInt("TextureFBO", 0);
+
+
     // a little transformation
     glm::mat4 trans = glm::mat4(1.0f);
     trans = glm::rotate(trans, (float)glfwGetTime(), glm::vec3(0.0, 0.0, 1.0));
-
-
-
-
     // render loop
     // -----------
     float pos =  1.0f;
@@ -150,8 +210,14 @@ int main()
 
         // render
         // ------
+        glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+
+
+
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
+
+        FboShader.use();
 
         if (pos < -1.0f || pos > 1.0f){
             sense = (sense + 1)%2;
@@ -160,30 +226,33 @@ int main()
 
         glm::mat4 trans = glm::mat4(1.0f);
 
-
-
-
         if(sense == 1) {
             pos = pos - offset;
         } else {
             pos = pos + offset;
         }
-
-
-
-        trans = glm::translate(trans, glm::vec3(pos, -0.2f, 0.0f));
+        trans = glm::translate(trans, glm::vec3(pos, -0.2f, pos));
         trans = glm::rotate(trans, (float)glfwGetTime(), glm::vec3(0.0f, 0.0f, 1.0f));
 
-        unsigned int transformLoc = glGetUniformLocation(ourShader.ID, "transform");
+        unsigned int transformLoc = glGetUniformLocation(FboShader.ID, "transform");
         glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(trans));
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+        glBindVertexArray(0);
 
-        // render the triangle
 
-        glBindTexture(GL_TEXTURE_2D, texture);
-        ourShader.use();
 
-        glBindVertexArray(VAO);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        // Back main framebuffer
+
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        // clear all relevant buffers
+        glClearColor(1.0f, 1.0f, 1.0f, 1.0f); // set clear color to white (not really necessery actually, since we won't be able to see behind the quad anyways)
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        ScreenShader.use();
+
+        glBindVertexArray(quadVAO);
+        glBindTexture(GL_TEXTURE_2D, textureColorbuffer);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
 
         //motion Blur
         glfwSwapBuffers(window);
@@ -204,19 +273,6 @@ int main()
     glfwTerminate();
     return 0;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 // process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
 // ---------------------------------------------------------------------------------------------------------
