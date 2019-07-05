@@ -6,12 +6,16 @@
 #include <zconf.h>
 #include <cmath>
 #include "Shader.hpp"
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
-void processInput(GLFWwindow *window);
+void processInput(GLFWwindow *window, float *offset);
 
 // settings
 const unsigned int SCR_WIDTH = 1200;
@@ -124,25 +128,56 @@ int main()
     stbi_image_free(data);
 
 
+    // a little transformation
+    glm::mat4 trans = glm::mat4(1.0f);
+    trans = glm::rotate(trans, (float)glfwGetTime(), glm::vec3(0.0, 0.0, 1.0));
+
 
 
 
     // render loop
     // -----------
+    float pos =  1.0f;
+    bool sense = 1;
+    float offset = 0.001f;
+
+
     while (!glfwWindowShouldClose(window))
     {
         // input
         // -----
-        processInput(window);
+        processInput(window, &offset);
 
         // render
         // ------
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
+        if (pos < -1.0f || pos > 1.0f){
+            sense = (sense + 1)%2;
+        }
+
+
+        glm::mat4 trans = glm::mat4(1.0f);
+
+
+
+
+        if(sense == 1) {
+            pos = pos - offset;
+        } else {
+            pos = pos + offset;
+        }
+
+
+
+        trans = glm::translate(trans, glm::vec3(pos, -0.2f, 0.0f));
+        trans = glm::rotate(trans, (float)glfwGetTime(), glm::vec3(0.0f, 0.0f, 1.0f));
+
+        unsigned int transformLoc = glGetUniformLocation(ourShader.ID, "transform");
+        glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(trans));
+
         // render the triangle
-
-
 
         glBindTexture(GL_TEXTURE_2D, texture);
         ourShader.use();
@@ -150,10 +185,13 @@ int main()
         glBindVertexArray(VAO);
         glDrawArrays(GL_TRIANGLES, 0, 3);
 
+        //motion Blur
+        glfwSwapBuffers(window);
+
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
-        glfwSwapBuffers(window);
         glfwPollEvents();
+
     }
 
     // optional: de-allocate all resources once they've outlived their purpose:
@@ -167,12 +205,29 @@ int main()
     return 0;
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
 // process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
 // ---------------------------------------------------------------------------------------------------------
-void processInput(GLFWwindow *window)
+void processInput(GLFWwindow *window, float *offset)
 {
     if(glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
+    if(glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
+        *offset += 0.001;
+    if(glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
+        *offset -= 0.001;
 }
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
