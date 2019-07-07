@@ -15,7 +15,7 @@
 #include "stb_image.h"
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
-void processInput(GLFWwindow *window, float *offset);
+void processInput(GLFWwindow *window, float *offset_x, float *offset_y,bool *motion);
 
 // settings
 const unsigned int SCR_WIDTH = 1200;
@@ -66,6 +66,48 @@ void init_vertices(unsigned int* VBO,unsigned int* VAO,unsigned int* EBO){
     // VAOs requires a call to glBindVertexArray anyways so we generally don't unbind VAOs (nor VBOs) when it's not directly necessary.
     glBindVertexArray(0);
 
+
+}
+
+
+void draw_scene(unsigned int texture, bool motion_activated, unsigned int VAO, Shader FboShader, glm::mat4 m_trans, glm::mat4 trans){
+
+    glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, texture);
+
+    unsigned int transformLoc = glGetUniformLocation(FboShader.ID, "trans");
+
+    if (motion_activated)
+        glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(m_trans));
+    else
+        glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(trans));
+
+    glBindVertexArray(VAO);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+    glBindVertexArray(0);
+
+}
+
+void set_fbo(unsigned int *framebuffer, unsigned int *textureColorbuffer){
+
+    glGenFramebuffers(1, framebuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, *framebuffer);
+    // create a color attachment texture
+    glGenTextures(1, textureColorbuffer);
+    glBindTexture(GL_TEXTURE_2D, *textureColorbuffer);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, *textureColorbuffer, 0);
+
+
+
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 }
 
@@ -164,24 +206,38 @@ int main()
     stbi_image_free(data);
 
 
-    //creation of framebuffer texture for the motion blur
+    //creation of first framebuffer texture for the motion blur
 
-    unsigned int framebuffer;
-    glGenFramebuffers(1, &framebuffer);
-    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-    // create a color attachment texture
-    unsigned int textureColorbuffer;
-    glGenTextures(1, &textureColorbuffer);
-    glBindTexture(GL_TEXTURE_2D, textureColorbuffer);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureColorbuffer, 0);
+    unsigned int framebuffer1;
+    unsigned int textureColorbuffer1;
+    set_fbo(&framebuffer1, &textureColorbuffer1);
+
+    //creation of second framebuffer texture for the motion blur
+
+    unsigned int framebuffer2;
+    unsigned int textureColorbuffer2;
+    set_fbo(&framebuffer2, &textureColorbuffer2);
+
+    //creation of second framebuffer texture for the motion blur
+
+    unsigned int framebuffer3;
+    unsigned int textureColorbuffer3;
+    set_fbo(&framebuffer3, &textureColorbuffer3);
 
 
-    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-        std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    //creation of second framebuffer texture for the motion blur
+
+    unsigned int framebuffer4;
+    unsigned int textureColorbuffer4;
+    set_fbo(&framebuffer4, &textureColorbuffer4);
+
+
+    //creation of second framebuffer texture for the motion blur
+
+    unsigned int framebuffer5;
+    unsigned int textureColorbuffer5;
+    set_fbo(&framebuffer5, &textureColorbuffer5);
+
 
 
     //initialisation of shaders
@@ -189,58 +245,119 @@ int main()
     FboShader.setInt("Texture", 0);
 
     ScreenShader.use();
-    ScreenShader.setInt("TextureFBO", 0);
-
+    ScreenShader.setInt("TextureFBO1", 0);
+    ScreenShader.setInt("TextureFBO2", 1);
+    ScreenShader.setInt("TextureFBO3", 2);
+    ScreenShader.setInt("TextureFBO4", 3);
+    ScreenShader.setInt("TextureFBO5", 4);
 
     // a little transformation
     glm::mat4 trans = glm::mat4(1.0f);
+    glm::mat4 trans5 = glm::mat4(1.0f);
+    glm::mat4 trans4 = glm::mat4(1.0f);
+    glm::mat4 trans3 = glm::mat4(1.0f);
+    glm::mat4 trans2 = glm::mat4(1.0f);
+    glm::mat4 trans1 = glm::mat4(1.0f);
+
+
+
     trans = glm::rotate(trans, (float)glfwGetTime(), glm::vec3(0.0, 0.0, 1.0));
     // render loop
     // -----------
-    float pos =  1.0f;
-    bool sense = 1;
-    float offset = 0.001f;
-
+    float pos_x =  1.0f;
+    float pos_y = 0.5f;
+    bool sense_x = 1;
+    bool sense_y= 1;
+    float offset_x = 0.0004f;
+    float offset_y = 0.0004f;
+    int frame = 0;
+    bool motion_activated = false;
 
     while (!glfwWindowShouldClose(window))
     {
         // input
         // -----
-        processInput(window, &offset);
+        processInput(window, &offset_x, &offset_y,&motion_activated);
 
-        // render
+
         // ------
-        glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-        
-        glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
 
-        if (pos < -1.0f || pos > 1.0f){
-            sense = (sense + 1)%2;
+
+        if (pos_x < -1.0f || pos_x > 1.0f){
+            sense_x = (sense_x + 1)%2;
         }
+
+        if (pos_y < -1.0f || pos_y > 1.0f){
+            sense_y = (sense_y + 1)%2;
+        }
+
 
 
         glm::mat4 trans = glm::mat4(1.0f);
 
-        if(sense == 1) {
-            pos = pos - offset;
+        if(sense_x == 1) {
+            pos_x = pos_x - offset_x;
         } else {
-            pos = pos + offset;
+            pos_x = pos_x + offset_x;
         }
-        trans = glm::translate(trans, glm::vec3(pos, -0.2f, pos));
+
+        if(sense_y == 1) {
+            pos_y = pos_y - offset_y;
+        } else {
+            pos_y = pos_y + offset_y;
+        }
+
+
+
+        trans = glm::translate(trans, glm::vec3(pos_x, pos_y, 0.0f));
         trans = glm::rotate(trans, (float)glfwGetTime(), glm::vec3(0.0f, 0.0f, 1.0f));
 
+        // render first step
+        if (frame < 5) {
+            if (frame % 5 == 4) {
+                trans5 = trans4;
+            }
+            if (frame % 5 == 3) {
+                trans4 = trans3;
+            }
+            if (frame % 5 == 2) {
+                trans3 = trans2;
+            }
+            if (frame % 5 == 1) {
+                trans2 = trans1;
+            }
+            if (frame % 5 == 0) {
+                trans1 = trans;
+            }
+        } else {
+            trans5 = trans4;
+            trans4 = trans3;
+            trans3 = trans2;
+            trans2 = trans1;
+            trans1 = trans;
+        }
+
+        frame+=1;
+
         FboShader.use();
-        unsigned int transformLoc = glGetUniformLocation(FboShader.ID, "trans");
-        glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(trans));
 
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, texture);
 
-        glBindVertexArray(VAO);
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-        glBindVertexArray(0);
+        // render each frame
+        glBindFramebuffer(GL_FRAMEBUFFER, framebuffer5);
+        draw_scene(texture, motion_activated, VAO, FboShader, trans5, trans);
 
+
+        glBindFramebuffer(GL_FRAMEBUFFER, framebuffer4);
+        draw_scene(texture, motion_activated, VAO, FboShader, trans4, trans);
+
+        glBindFramebuffer(GL_FRAMEBUFFER, framebuffer3);
+        draw_scene(texture, motion_activated, VAO, FboShader, trans3, trans);
+
+        glBindFramebuffer(GL_FRAMEBUFFER, framebuffer2);
+        draw_scene(texture, motion_activated, VAO, FboShader, trans2, trans);
+
+        glBindFramebuffer(GL_FRAMEBUFFER, framebuffer1);
+        draw_scene(texture, motion_activated, VAO, FboShader, trans1, trans);
 
 
         // Back main framebuffer
@@ -253,15 +370,28 @@ int main()
         ScreenShader.use();
 
         glBindVertexArray(quadVAO);
-        glBindTexture(GL_TEXTURE_2D, textureColorbuffer);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, textureColorbuffer1);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, textureColorbuffer2);
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D, textureColorbuffer3);
+        glActiveTexture(GL_TEXTURE3);
+        glBindTexture(GL_TEXTURE_2D, textureColorbuffer4);
+        glActiveTexture(GL_TEXTURE4);
+        glBindTexture(GL_TEXTURE_2D, textureColorbuffer5);
+
+
+
         glDrawArrays(GL_TRIANGLES, 0, 6);
 
-        //motion Blur
         glfwSwapBuffers(window);
 
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
         glfwPollEvents();
+
+        sleep(0.5);
 
     }
 
@@ -278,14 +408,22 @@ int main()
 
 // process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
 // ---------------------------------------------------------------------------------------------------------
-void processInput(GLFWwindow *window, float *offset)
+void processInput(GLFWwindow *window, float *offset_x, float *offset_y,bool *motion)
 {
     if(glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
     if(glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
-        *offset += 0.001;
+        *offset_x += 0.0001;
     if(glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
-        *offset -= 0.001;
+        *offset_x -= 0.0001;
+    if(glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
+        *offset_y += 0.0001;
+    if(glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)
+        *offset_y -= 0.0001;
+    if(glfwGetKey(window, GLFW_KEY_ENTER) == GLFW_PRESS)
+        *motion = true;
+    if(glfwGetKey(window, GLFW_KEY_BACKSPACE) == GLFW_PRESS)
+        *motion = false;
 }
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes

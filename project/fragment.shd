@@ -4,10 +4,21 @@ out vec4 FragColor;
 
 in vec2 textCoord;
 
-uniform sampler2D TextureFBO;
+uniform sampler2D TextureFBO1;
+uniform sampler2D TextureFBO2;
+uniform sampler2D TextureFBO3;
+uniform sampler2D TextureFBO4;
+uniform sampler2D TextureFBO5;
+
+
 
 void main()
 {
-    vec3 col = texture(TextureFBO, textCoord).rgb;
-    FragColor = vec4(col, 1.0);
+    FragColor = mix(texture(TextureFBO4, textCoord), texture(TextureFBO5, textCoord), 0.5);
+    FragColor = mix(texture(TextureFBO3, textCoord), FragColor, 0.5);
+    FragColor = mix(texture(TextureFBO2, textCoord), FragColor, 0.5);
+    FragColor = mix(texture(TextureFBO1, textCoord), FragColor, 0.8);
+
+     //FragColor = texture(TextureFBO2, textCoord);
+    //FragColor = texture(TextureFBO1, textCoord);
 }
