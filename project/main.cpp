@@ -12,71 +12,24 @@
 
 
 #define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
+#include "model.hpp"
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow *window, float *offset_x, float *offset_y,bool *motion);
 
 // settings
-const unsigned int SCR_WIDTH = 1200;
-const unsigned int SCR_HEIGHT = 800;
+const unsigned int SCR_WIDTH = 1600;
+const unsigned int SCR_HEIGHT = 900;
 
-void init_vertices(unsigned int* VBO,unsigned int* VAO,unsigned int* EBO){
+void draw_scene_model(Model ourModel, bool motion_activated, Shader FboShader, glm::mat4 m_trans, glm::mat4 trans){
 
-    float vertices[] = {
-            -0.25f,  0.25f, 0.0f, 0.0f, 1.0f, // top left
-            -0.25f, 0.0f, 0.0f, 0.0f, 0.0f, // bottom left
-            0.25f, 0.0f, 0.0f,  1.0f, 0.0f,// bottom right
-            0.25f, 0.25f, 0.0f, 1.0f, 1.0f // top right
-
-    };
-
-    unsigned int indices[] = {  // note that we start from 0!
-            0, 1, 3,  // first Triangle
-            1, 2, 3   // second Triangle
-    };
-
-    glGenVertexArrays(1, VAO);
-    glGenBuffers(1, VBO);
-    glGenBuffers(1, EBO);
-    // bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
-    glBindVertexArray(*VAO);
-
-    glBindBuffer(GL_ARRAY_BUFFER, *VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, *EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-
-
-    // position attribute
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-    // texture attribute
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
-    glEnableVertexAttribArray(1);
-
-    // note that this is allowed, the call to glVertexAttribPointer registered VBO as the vertex attribute's bound vertex buffer object so afterwards we can safely unbind
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-    // remember: do NOT unbind the EBO while a VAO is active as the bound element buffer object IS stored in the VAO; keep the EBO bound.
-    //glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-
-    // You can unbind the VAO afterwards so other VAO calls won't accidentally modify this VAO, but this rarely happens. Modifying other
-    // VAOs requires a call to glBindVertexArray anyways so we generally don't unbind VAOs (nor VBOs) when it's not directly necessary.
-    glBindVertexArray(0);
-
-
-}
-
-
-void draw_scene(unsigned int texture, bool motion_activated, unsigned int VAO, Shader FboShader, glm::mat4 m_trans, glm::mat4 trans){
-
-    glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+    glClearColor(0.2f, 0.5f, 0.3f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, texture);
+    glm::mat4 model = glm::mat4(1.0f);
+    model = glm::scale(model, glm::vec3(0.5f, 0.5f, 0.5f));
+    FboShader.setMat4("model", model);
+    ourModel.Draw(FboShader);
 
     unsigned int transformLoc = glGetUniformLocation(FboShader.ID, "trans");
 
@@ -84,10 +37,6 @@ void draw_scene(unsigned int texture, bool motion_activated, unsigned int VAO, S
         glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(m_trans));
     else
         glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(trans));
-
-    glBindVertexArray(VAO);
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-    glBindVertexArray(0);
 
 }
 
@@ -101,6 +50,8 @@ void set_fbo(unsigned int *framebuffer, unsigned int *textureColorbuffer){
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, *textureColorbuffer, 0);
 
 
@@ -116,8 +67,8 @@ void set_fbo(unsigned int *framebuffer, unsigned int *textureColorbuffer){
 
 int main()
 {
-    // glfw: initialize and configure
-    // ------------------------------
+
+
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
@@ -127,8 +78,6 @@ int main()
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); // uncomment this statement to fix compilation on OS X
 #endif
 
-    // glfw window creation
-    // --------------------
     GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "MotionBlur", NULL, NULL);
     if (window == NULL)
     {
@@ -139,16 +88,12 @@ int main()
     glfwMakeContextCurrent(window);
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
-    // glad: load all OpenGL function pointers
-    // ---------------------------------------
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
     {
         std::cout << "Failed to initialize GLAD" << std::endl;
         return -1;
     }
 
-    // build and compile our shader program
-    // ------------------------------------
     Shader ScreenShader("../vertex.shd", "../fragment.shd");
 
     Shader FboShader("../vertex_fbo.shd", "../fragment_fbo.shd");
@@ -156,10 +101,6 @@ int main()
 
     unsigned int VBO, VAO, EBO;
 
-    init_vertices(&VBO, &VAO, &EBO);
-
-
-    //init screen
     float quadVertices[] = { // vertex attributes for a quad that fills the entire screen in Normalized Device Coordinates.
             // positions   // texCoords
             -1.0f,  1.0f,  0.0f, 1.0f,
@@ -182,61 +123,45 @@ int main()
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
 
 
-    //loading texture
-    unsigned int texture;
-    glGenTextures(1, &texture);
-    glBindTexture(GL_TEXTURE_2D, texture);
-    // set the texture wrapping/filtering options (on the currently bound texture object)
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    //loading model
 
-    int width, height, nrChannels;
-    unsigned char *data = stbi_load("../texture/container.jpg", &width, &height, &nrChannels, 0);
-    if (data)
-    {
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
-        glGenerateMipmap(GL_TEXTURE_2D);
-    }
-    else
-    {
-        std::cout << "Failed to load texture" << std::endl;
-    }
-    stbi_image_free(data);
+    Model ourModel("../texture/untitled.obj");
 
-
-    //creation of first framebuffer texture for the motion blur
+    //creation of framebuffers texture for the motion blur
 
     unsigned int framebuffer1;
     unsigned int textureColorbuffer1;
     set_fbo(&framebuffer1, &textureColorbuffer1);
 
-    //creation of second framebuffer texture for the motion blur
-
     unsigned int framebuffer2;
     unsigned int textureColorbuffer2;
     set_fbo(&framebuffer2, &textureColorbuffer2);
-
-    //creation of second framebuffer texture for the motion blur
 
     unsigned int framebuffer3;
     unsigned int textureColorbuffer3;
     set_fbo(&framebuffer3, &textureColorbuffer3);
 
 
-    //creation of second framebuffer texture for the motion blur
-
     unsigned int framebuffer4;
     unsigned int textureColorbuffer4;
     set_fbo(&framebuffer4, &textureColorbuffer4);
 
 
-    //creation of second framebuffer texture for the motion blur
-
     unsigned int framebuffer5;
     unsigned int textureColorbuffer5;
     set_fbo(&framebuffer5, &textureColorbuffer5);
+
+    unsigned int framebuffer6;
+    unsigned int textureColorbuffer6;
+    set_fbo(&framebuffer6, &textureColorbuffer6);
+
+    unsigned int framebuffer7;
+    unsigned int textureColorbuffer7;
+    set_fbo(&framebuffer7, &textureColorbuffer7);
+
+    unsigned int framebuffer8;
+    unsigned int textureColorbuffer8;
+    set_fbo(&framebuffer8, &textureColorbuffer8);
 
 
 
@@ -250,9 +175,16 @@ int main()
     ScreenShader.setInt("TextureFBO3", 2);
     ScreenShader.setInt("TextureFBO4", 3);
     ScreenShader.setInt("TextureFBO5", 4);
+    ScreenShader.setInt("TextureFBO6", 5);
+    ScreenShader.setInt("TextureFBO7", 6);
+    ScreenShader.setInt("TextureFBO8", 7);
+
 
     // a little transformation
     glm::mat4 trans = glm::mat4(1.0f);
+    glm::mat4 trans8 = glm::mat4(1.0f);
+    glm::mat4 trans7 = glm::mat4(1.0f);
+    glm::mat4 trans6 = glm::mat4(1.0f);
     glm::mat4 trans5 = glm::mat4(1.0f);
     glm::mat4 trans4 = glm::mat4(1.0f);
     glm::mat4 trans3 = glm::mat4(1.0f);
@@ -279,9 +211,7 @@ int main()
         // -----
         processInput(window, &offset_x, &offset_y,&motion_activated);
 
-
-        // ------
-
+        //moving the leaf
 
         if (pos_x < -1.0f || pos_x > 1.0f){
             sense_x = (sense_x + 1)%2;
@@ -290,8 +220,6 @@ int main()
         if (pos_y < -1.0f || pos_y > 1.0f){
             sense_y = (sense_y + 1)%2;
         }
-
-
 
         glm::mat4 trans = glm::mat4(1.0f);
 
@@ -310,26 +238,41 @@ int main()
 
 
         trans = glm::translate(trans, glm::vec3(pos_x, pos_y, 0.0f));
-        trans = glm::rotate(trans, (float)glfwGetTime(), glm::vec3(0.0f, 0.0f, 1.0f));
+
+        //get position of object for each frame
 
         // render first step
-        if (frame < 5) {
-            if (frame % 5 == 4) {
+        if (frame < 8) {
+            if (frame % 8 == 7) {
+                trans8 = trans7;
+            }
+            if (frame % 8 == 6) {
+                trans7 = trans6;
+            }
+            if (frame % 8 == 5) {
+                trans6 = trans5;
+            }
+
+            if (frame % 8 == 4) {
                 trans5 = trans4;
             }
-            if (frame % 5 == 3) {
+            if (frame % 8 == 3) {
                 trans4 = trans3;
             }
-            if (frame % 5 == 2) {
+            if (frame % 8 == 2) {
                 trans3 = trans2;
             }
-            if (frame % 5 == 1) {
+            if (frame % 8 == 1) {
                 trans2 = trans1;
             }
-            if (frame % 5 == 0) {
+            if (frame % 8 == 0) {
                 trans1 = trans;
             }
         } else {
+
+            trans8 = trans7;
+            trans7 = trans6;
+            trans6 = trans5;
             trans5 = trans4;
             trans4 = trans3;
             trans3 = trans2;
@@ -341,30 +284,36 @@ int main()
 
         FboShader.use();
 
-
         // render each frame
-        glBindFramebuffer(GL_FRAMEBUFFER, framebuffer5);
-        draw_scene(texture, motion_activated, VAO, FboShader, trans5, trans);
+        glBindFramebuffer(GL_FRAMEBUFFER, framebuffer8);
+        draw_scene_model(ourModel, motion_activated, FboShader, trans8, trans);
 
+        glBindFramebuffer(GL_FRAMEBUFFER, framebuffer7);
+        draw_scene_model(ourModel, motion_activated, FboShader, trans7, trans);
+
+        glBindFramebuffer(GL_FRAMEBUFFER, framebuffer6);
+        draw_scene_model(ourModel, motion_activated, FboShader, trans6, trans);
+
+        glBindFramebuffer(GL_FRAMEBUFFER, framebuffer5);
+        draw_scene_model(ourModel, motion_activated, FboShader, trans5, trans);
 
         glBindFramebuffer(GL_FRAMEBUFFER, framebuffer4);
-        draw_scene(texture, motion_activated, VAO, FboShader, trans4, trans);
+        draw_scene_model(ourModel, motion_activated, FboShader, trans4, trans);
 
         glBindFramebuffer(GL_FRAMEBUFFER, framebuffer3);
-        draw_scene(texture, motion_activated, VAO, FboShader, trans3, trans);
+        draw_scene_model(ourModel, motion_activated, FboShader, trans3, trans);
 
         glBindFramebuffer(GL_FRAMEBUFFER, framebuffer2);
-        draw_scene(texture, motion_activated, VAO, FboShader, trans2, trans);
+        draw_scene_model(ourModel, motion_activated, FboShader, trans2, trans);
 
         glBindFramebuffer(GL_FRAMEBUFFER, framebuffer1);
-        draw_scene(texture, motion_activated, VAO, FboShader, trans1, trans);
-
+        draw_scene_model(ourModel, motion_activated, FboShader, trans1, trans);
 
         // Back main framebuffer
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         // clear all relevant buffers
-        glClearColor(1.0f, 1.0f, 1.0f, 1.0f); // set clear color to white (not really necessery actually, since we won't be able to see behind the quad anyways)
+        glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
         ScreenShader.use();
@@ -380,6 +329,12 @@ int main()
         glBindTexture(GL_TEXTURE_2D, textureColorbuffer4);
         glActiveTexture(GL_TEXTURE4);
         glBindTexture(GL_TEXTURE_2D, textureColorbuffer5);
+        glActiveTexture(GL_TEXTURE5);
+        glBindTexture(GL_TEXTURE_2D, textureColorbuffer6);
+        glActiveTexture(GL_TEXTURE6);
+        glBindTexture(GL_TEXTURE_2D, textureColorbuffer7);
+        glActiveTexture(GL_TEXTURE7);
+        glBindTexture(GL_TEXTURE_2D, textureColorbuffer8);
 
 
 
@@ -387,21 +342,10 @@ int main()
 
         glfwSwapBuffers(window);
 
-        // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
-        // -------------------------------------------------------------------------------
         glfwPollEvents();
-
-        sleep(0.5);
 
     }
 
-    // optional: de-allocate all resources once they've outlived their purpose:
-    // ------------------------------------------------------------------------
-    glDeleteVertexArrays(1, &VAO);
-    glDeleteBuffers(1, &VBO);
-
-    // glfw: terminate, clearing all previously allocated GLFW resources.
-    // ------------------------------------------------------------------
     glfwTerminate();
     return 0;
 }

@@ -9,15 +9,20 @@ uniform sampler2D TextureFBO2;
 uniform sampler2D TextureFBO3;
 uniform sampler2D TextureFBO4;
 uniform sampler2D TextureFBO5;
-
+uniform sampler2D TextureFBO6;
+uniform sampler2D TextureFBO7;
+uniform sampler2D TextureFBO8;
 
 
 void main()
 {
-    FragColor = mix(texture(TextureFBO4, textCoord), texture(TextureFBO5, textCoord), 0.5);
+    FragColor = mix(texture(TextureFBO7, textCoord), texture(TextureFBO8, textCoord), 0.5);
+    FragColor = mix(texture(TextureFBO6, textCoord), FragColor, 0.5);
+    FragColor = mix(texture(TextureFBO5, textCoord), FragColor, 0.5);
+    FragColor = mix(texture(TextureFBO4, textCoord), FragColor, 0.5);
     FragColor = mix(texture(TextureFBO3, textCoord), FragColor, 0.5);
     FragColor = mix(texture(TextureFBO2, textCoord), FragColor, 0.5);
-    FragColor = mix(texture(TextureFBO1, textCoord), FragColor, 0.8);
+    FragColor = mix(texture(TextureFBO1, textCoord), FragColor, 0.4);
 
      //FragColor = texture(TextureFBO2, textCoord);
     //FragColor = texture(TextureFBO1, textCoord);
