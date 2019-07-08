@@ -18,8 +18,8 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow *window, float *offset_x, float *offset_y,bool *motion);
 
 // settings
-const unsigned int SCR_WIDTH = 1600;
-const unsigned int SCR_HEIGHT = 900;
+const unsigned int SCR_WIDTH = 1800;
+const unsigned int SCR_HEIGHT = 1000;
 
 void draw_scene_model(Model ourModel, bool motion_activated, Shader FboShader, glm::mat4 m_trans, glm::mat4 trans){
 
@@ -101,8 +101,7 @@ int main()
 
     unsigned int VBO, VAO, EBO;
 
-    float quadVertices[] = { // vertex attributes for a quad that fills the entire screen in Normalized Device Coordinates.
-            // positions   // texCoords
+    float quadVertices[] = { 
             -1.0f,  1.0f,  0.0f, 1.0f,
             -1.0f, -1.0f,  0.0f, 0.0f,
             1.0f, -1.0f,  1.0f, 0.0f,
@@ -350,8 +349,6 @@ int main()
     return 0;
 }
 
-// process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
-// ---------------------------------------------------------------------------------------------------------
 void processInput(GLFWwindow *window, float *offset_x, float *offset_y,bool *motion)
 {
     if(glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
@@ -370,11 +367,7 @@ void processInput(GLFWwindow *window, float *offset_x, float *offset_y,bool *mot
         *motion = false;
 }
 
-// glfw: whenever the window size changed (by OS or user resize) this callback function executes
-// ---------------------------------------------------------------------------------------------
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
-    // make sure the viewport matches the new window dimensions; note that width and
-    // height will be significantly larger than specified on retina displays.
     glViewport(0, 0, width, height);
 }

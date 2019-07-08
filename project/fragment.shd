@@ -23,7 +23,4 @@ void main()
     FragColor = mix(texture(TextureFBO3, textCoord), FragColor, 0.5);
     FragColor = mix(texture(TextureFBO2, textCoord), FragColor, 0.5);
     FragColor = mix(texture(TextureFBO1, textCoord), FragColor, 0.4);
-
-     //FragColor = texture(TextureFBO2, textCoord);
-    //FragColor = texture(TextureFBO1, textCoord);
 }
